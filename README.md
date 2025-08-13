@@ -5,6 +5,7 @@ This folder contains all the codes for the paper *Functional Data Clustering and
 
 # Package Structure
 FDSC/ 
+
 ├── R/
 
     ├── datageration.R       # R functions to generate artificial data in the simulation
