@@ -1,10 +1,10 @@
 # FDSC
 Functional Data Subgroup Clustering Algorithm via Minimum Spanning Tree
 # Introduction
-This folder contains all the codes for the paper Functional Data Clustering and Outlier Identification via Subgroup Analysis with Minimum Spanning Tree.
+This folder contains all the codes for the paper *Functional Data Clustering and Outlier Identification via Subgroup Analysis with Minimum Spanning Tree*.
 
-Package Structure
-# FDSC/ 
+# Package Structure
+FDSC/ 
 ├── R/
 
     ├── datageration.R       # R functions to generate artificial data in the simulation
