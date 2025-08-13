@@ -6,17 +6,17 @@ This folder contains all the codes for the paper *Functional Data Clustering and
 # Package Structure
 FDSC/ 
 
-├── R/
+    ├── R/
 
-    ├── datageration.R       # R functions to generate artificial data in the simulation
+        ├── datageration.R       # R functions to generate artificial data in the simulation
 
-    ├── FDSC-MST.R           # R functions for FDSC-MST method in this paper
+        ├── FDSC-MST.R           # R functions for FDSC-MST method in this paper
 
-    ├── FDSCOD-MST.R         # R functions for FDSCOD-MST method in this paper
+        ├── FDSCOD-MST.R         # R functions for FDSCOD-MST method in this paper
 
-    ├── utils.R              # R functions for the calculation of criteria
+        ├── utils.R              # R functions for the calculation of criteria
 
-├── example.R               # R script for demonstration examples
+    ├── example.R               # R script for demonstration examples
 # Example: minimal reproducible usage
 library(MASS)
 
