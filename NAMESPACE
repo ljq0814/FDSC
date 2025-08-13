@@ -1,0 +1,9 @@
+useDynLib(FDSC)
+import(MASS)
+import(fda)
+import(fdapace)
+import(igraph)
+import(flexclust)
+exportPattern("^[[:alpha:]]+")
+
+
