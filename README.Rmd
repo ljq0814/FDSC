@@ -88,6 +88,7 @@ where $\delta \sim \text{Bernoulli}(0.5)$ and $\theta = 0.5$.
 
 ```r
 set.seed(123)
+n <- 200; K <- 2; grid <- seq(1, 21, length = 101); sig_x <- 0.1
 theta <- 0.5   # outlier contamination intensity
 
 # Generate contaminated data: 200 observations, 10 of which are outliers
