@@ -264,7 +264,7 @@ datageneration <- function(n, grid, sig_x, K,
     membership = group_id,
     mu = mu_true
   )
-  if (is_outlier) out$out_true <- out_true
+  if (is_outlier) out$outlier <- out_true
   return(out)
 }
 

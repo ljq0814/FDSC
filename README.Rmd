@@ -95,7 +95,7 @@ dat2 <- datageneration(n = n, grid = grid, sig_x = sig_x,
                         K = K, spatial_dist_type = "uniform",
                         is_outlier = TRUE, outliercase = "case1",
                         theta = theta)
-# dat2$out_true : indices of the 10 outliers
+# dat2$outlier : indices of the 10 outliers
 
 # Run FDSCOD-MST
 res_fdscodmst <- fdscod_mst(Y = dat2$Y, coord = dat2$coord, grid = grid,
@@ -110,9 +110,9 @@ summary(res_fdscodmst)
 label_true2 <- integer(n)
 for (k in 1:K) label_true2[dat2$membership[[k]]] <- k
 cat(flexclust::comPart(label_true2, res_fdscodmst$label, type = "ARI")) ## ARI calculation
-TPR <- length(intersect(res_fdscodmst$outlier, dat2$out_true)) / length(dat2$out_true) ## TPR calculation
+TPR <- length(intersect(res_fdscodmst$outlier, dat2$outlier)) / length(dat2$outlier) ## TPR calculation
 cat(TPR)
-FPR <- length(setdiff(res_fdscodmst$outlier, dat2$out_true)) / (n - length(dat2$out_true)) ## FPR calculation
+FPR <- length(setdiff(res_fdscodmst$outlier, dat2$outlier)) / (n - length(dat2$outlier)) ## FPR calculation
 cat(FPR)
 ```
 
