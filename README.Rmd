@@ -1,28 +1,29 @@
-Functional Data Subgroup Clustering Algorithm via Minimum Spanning Tree
-================
+---
+title: "Functional Data Subgroup Clustering Algorithm via Minimum Spanning Tree"
+output: github_document
+---
 
 ## Overview
 
-`FDSC` implements two functional data clustering algorithms based on
-minimum spanning tree (MST).
+`FDSC` implements two functional data clustering algorithms based on minimum
+spanning tree (MST).
 
-**FDSC-MST** addresses subgroup clustering by constructing an MST using
-both geographical distance and functional curve similarity, and applying
-subgroup pairwise penalties to MST edges. The optimization problem is
-solved via the alternating direction method of multipliers (ADMM).
+**FDSC-MST** addresses subgroup clustering by constructing an MST using both
+geographical distance and functional curve similarity, and applying subgroup
+pairwise penalties to MST edges. The optimization problem is solved via the
+alternating direction method of multipliers (ADMM). 
 
-**FDSCOD-MST** extends this framework to contaminated data by
-simultaneously performing clustering and outlier detection.
+**FDSCOD-MST** extends this framework to contaminated data by simultaneously
+performing clustering and outlier detection.
 
 The package provides the following main functions:
 
 - `fdsc_mst()`: Functional Data Subgroup Clustering via MST (FDSC-MST)
-- `fdscod_mst()`: Functional Data Subgroup Clustering and Outlier
-  Detection via MST (FDSCOD-MST)
+- `fdscod_mst()`: Functional Data Subgroup Clustering and Outlier Detection via MST (FDSCOD-MST)
 
 ## Installation
 
-``` r
+```r
 # install.packages("devtools")
 devtools::install_github("LC8736/FDSC")
 ```
@@ -37,15 +38,13 @@ step size 0.2, under two clusters $G_1$ and $G_2$ with mean functions:
 - For $i \in G_1$, $\mu_i(t) = \max(6 - |t - 7|, 0)$
 - For $i \in G_2$, $\mu_i(t) = \max(6 - |t - 15|, 0)$
 
-Spatial locations $(h_{xi},h_{yi})$ are sampled uniformly from
-$[0, 1]^2$, which satisfy:
+Spatial locations $(h_{xi},h_{yi})$ are sampled uniformly from $[0, 1]^2$, which satisfy:
 
 $$G_1 = \{i \mid h_{xi} > h_{yi}\}, \quad G_2 = \{i \mid h_{xi} \leq h_{yi}\}$$
 
-Each observation is a smooth curve with Gaussian noise of standard
-deviation 0.1.
+Each observation is a smooth curve with Gaussian noise of standard deviation 0.1.
 
-``` r
+```r
 library(FDSC)
 library(flexclust) ## Compute ARI
 set.seed(123)
@@ -77,16 +76,17 @@ for (k in 1:K) label_true[dat1$membership[[k]]] <- k
 cat(flexclust::comPart(label_true, res_fdscmst$label, type = "ARI")) ## ARI calculation, close to 1 indicates accurate clustering
 ```
 
+
 ### Example 2: Clustering with Outlier Detection (FDSCOD-MST)
 
-We introduce $n_{\text{out}} = 10$ outliers into the dataset from
-Example 1. The outlier mean functions follow the contamination scheme:
+We introduce $n_{\text{out}} = 10$ outliers into the dataset from Example 1.
+The outlier mean functions follow the contamination scheme:
 
 $$\mu_i(t) = \theta\{\delta \min(|t - 7| - 6, 0) + (1 - \delta)\min(|t - 15| - 6, 0)\}, \quad i \in \mathcal{O}$$
 
 where $\delta \sim \text{Bernoulli}(0.5)$ and $\theta = 0.5$.
 
-``` r
+```r
 set.seed(123)
 theta <- 0.5   # outlier contamination intensity
 
@@ -117,8 +117,4 @@ cat(FPR)
 ```
 
 ## Reference
-
-Liu, C., Lin, S., and Li, J. (2026). Functional data clustering and
-outlier identification via subgroup analysis with minimum spanning tree.
-*Information Processing & Management*, 63(5), 104646.
-<https://doi.org/10.1016/j.ipm.2026.104646>
+Liu, C., Lin, S., and Li, J. (2026). Functional data clustering and outlier identification via subgroup analysis with minimum spanning tree. *Information Processing & Management*, 63(5), 104646. https://doi.org/10.1016/j.ipm.2026.104646

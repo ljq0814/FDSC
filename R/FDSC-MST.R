@@ -1,85 +1,124 @@
-# main function: "fun_group_mst" and "fun_est_ls_mst" 
+# main function: "recover_clusters" and "admm_mst" 
 ## --------- FDSC-MST algorithm -----------
 
-########################### For estimation by ADMM algorithm #########################
-#' @title ADMM algorithm
-#' Input:
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param timerange numeric vector of time points
-#' @param B B=kronecker(diag(1,n),B.basis) B-spline bases, as the role of covariates in regression-based methods
-#' @param A A=kronecker(mst_mat,diag(p))
-#' @param diff_mat The second order difference operator
-#' @param mst_mat (n-1)*n matrix obtained based on the constructed MST
-#' @param gamma_old Initial value of gamma (gamma in our manuscript)
-#' @param vl_old Initial value of vl (v_l in our manuscript)
-#' @param zeta_old Initial value of zeta (zeta in our manuscript)
-#' @param rho ADMM learning rate parameter rho
-#' @param aa concavity parameter a of the MCP penalty
-#' @param tau the regularization parameter tau refers to MCP penalty
-#' @param lambda the smoothing parameter lambda
-#' @param ep ADMM stopping tolerance (default = 1e-1)
-#' Output: 
-#' @return gamma_tmp estimated gamma by ADMM iteration (gamma in our manuscript)
-#' @return vl_tmp estimated vl by ADMM iteration (v_l in our manuscript)
-#####################################################################################
-fun_est_ls_mst <- function(fdy, timerange, B, A, diff_mat, mst_mat, gamma_old, vl_old, zeta_old, rho=1, aa=3, lambda = 0.1, tau = 20, ep=0.1) {  
-  n <- nrow(fdy)
-  T <- length(timerange)
-  y <- matrix(c(t(fdy)))
-  tau1 = tau / rho 
-  rr = 10
-  p <- 6
+#' ADMM Estimation for FDSC-MST
+#'
+#' Solves the ADMM optimization problem for functional data subgroup clustering
+#' via minimum spanning tree, iteratively updating the spline coefficient vector
+#' \eqn{\gamma}, the auxiliary variable \eqn{v_l}, and the dual variable
+#' \eqn{\zeta} until convergence or the maximum number of iterations is reached.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param B A numeric matrix equal to \code{kronecker(diag(1, n), B_basis)},
+#'   representing the B-spline basis expanded for all observations.
+#' @param A A numeric matrix equal to \code{kronecker(mst_mat, diag(p))}.
+#' @param diff_mat The second-order difference penalty matrix.
+#' @param mst_mat An \code{(n-1) x n} matrix derived from the constructed MST.
+#' @param gamma_old Initial value of the spline coefficient vector
+#'   \eqn{\gamma}.
+#' @param vl_old Initial value of the auxiliary variable \eqn{v_l}.
+#' @param zeta_old Initial value of the dual variable \eqn{\zeta}.
+#' @param rho A positive numeric scalar specifying the ADMM learning rate.
+#'   Defaults to \code{1}.
+#' @param a A positive numeric scalar specifying the concavity parameter of
+#'   the MCP penalty. Defaults to \code{3}.
+#' @param lambda A positive numeric scalar specifying the smoothing penalty
+#'   parameter for the B-spline roughness penalty. Defaults to \code{0.1}.
+#' @param tau A positive numeric scalar specifying the regularization parameter
+#'   of the MCP penalty. Defaults to \code{20}.
+#' @param tol A positive numeric scalar specifying the ADMM stopping tolerance.
+#'   Defaults to \code{0.1}.
+#' @param max_iter A positive integer specifying the maximum number of ADMM
+#'   iterations. Defaults to \code{10000}.
+#'
+#' @return A list with two components:
+#'   \describe{
+#'     \item{gamma}{Estimated spline coefficient vector \eqn{\gamma} at
+#'       convergence.}
+#'     \item{vl}{Estimated auxiliary variable \eqn{v_l} at convergence.}
+#'   }
+#'
+#' @keywords internal
+admm_mst <- function(Y, grid, B, A, diff_mat, mst_mat, gamma_old, vl_old, zeta_old, rho=1, a=3, lambda = 0.1, tau = 20, tol=0.1, max_iter = 10000) {  
+  n <- nrow(Y)
+  n_time <- length(grid)
+  y <- matrix(c(t(Y)))
+  tau1 <- tau / rho 
+  rr <- 10
+  iter <- 0
+  p <- ncol(B)/n
   C <- crossprod(B) + lambda * diff_mat + rho * crossprod(A)
   chol_C <- chol(C)
-  while(rr > ep) {
+  while(rr > tol && iter < max_iter) {
     gamma_tmp <- backsolve(chol_C, forwardsolve(chol_C, crossprod(B, y) + rho * t(A) %*% matrix(as.vector((t(vl_old) - 1 / rho * t(zeta_old))))))
-    gamma_matrix = matrix(gamma_tmp, nrow = n, byrow = TRUE)
-    delta_gamma = mst_mat %*% gamma_matrix
-    ksi = delta_gamma + rho^(-1) * zeta_old
-    ksinorm = apply(ksi^2, 1, sum)
-    ksinorm = sqrt(ksinorm)
-    SS = 1 - tau1 / ksinorm
-    S = (((SS > 0) * SS) %*% t(seq(1, 1, length = p))) * ksi
-    thr1 = (ksinorm > (aa * tau)) %*% t(seq(1, 1, length = p))
-    thr2 = (ksinorm <= (aa * tau)) %*% t(seq(1, 1, length = p))
-    tau2 = tau1 * aa / (aa - 1)
-    SS2_ = 1 - tau2 / ksinorm
-    S2_ = (((SS2_ > 0) * SS2_) %*% t(seq(1, 1, length = p))) * ksi
-    thr3 = (ksinorm <= (tau + tau1)) %*% t(seq(1, 1, length = p))
-    thr4 = ((ksinorm > (tau + tau1)) * (ksinorm <= (aa * tau))) %*% t(seq(1, 1, length = p))
+    gamma_matrix <- matrix(gamma_tmp, nrow = n, byrow = TRUE)
+    delta_gamma <- mst_mat %*% gamma_matrix
+    ksi <- delta_gamma + rho^(-1) * zeta_old
+    ksinorm <- apply(ksi^2, 1, sum)
+    ksinorm <- sqrt(ksinorm)
+    SS <- 1 - tau1 / ksinorm
+    S <- (((SS > 0) * SS) %*% t(seq(1, 1, length = p))) * ksi
+    thr1 <- (ksinorm > (a * tau)) %*% t(seq(1, 1, length = p))
+    thr2 <- (ksinorm <= (a * tau)) %*% t(seq(1, 1, length = p))
+    tau2 <- tau1 * a / (a - 1)
+    SS2_ <- 1 - tau2 / ksinorm
+    S2_ <- (((SS2_ > 0) * SS2_) %*% t(seq(1, 1, length = p))) * ksi
+    thr3 <- (ksinorm <= (tau + tau1)) %*% t(seq(1, 1, length = p))
+    thr4 <- ((ksinorm > (tau + tau1)) * (ksinorm <= (a * tau))) %*% t(seq(1, 1, length = p))
       
-    vl_tmp = ksi * thr1 + (S / (1 - (rho * aa)^(-1))) * thr2
+    vl_tmp <- ksi * thr1 + (S / (1 - (rho * a)^(-1))) * thr2
 
-    zeta_tmp = zeta_old + rho * (delta_gamma - vl_tmp)
-    r = delta_gamma - vl_tmp
-    r = as.vector(r)
-    rr= sqrt(t(r) %*% r / length(r))
-    gamma_old = gamma_tmp
-    vl_old = vl_tmp
-    zeta_old = zeta_tmp
+    zeta_tmp <- zeta_old + rho * (delta_gamma - vl_tmp)
+    r <- delta_gamma - vl_tmp
+    r <- as.vector(r)
+    rr <- sqrt(t(r) %*% r / length(r))
+    gamma_old <- gamma_tmp
+    vl_old <- vl_tmp
+    zeta_old <- zeta_tmp
+    iter <- iter + 1
   }
-  list(gamma_tmp = gamma_tmp, vl_tmp = vl_tmp)
+  if (iter == max_iter)
+    warning("ADMM did not converge within ", max_iter, " iterations")
+  list(gamma = gamma_tmp, vl = vl_tmp)
 }     
 
 ##########################################################################################
 ########################### End  For estimation by ADMM algorithm #########################
 
 
-####################################### for grouping #################################
-#####################################################################################
-#' Input:
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param vl_new_ls Output from function "fun_est_ls_mst" $vl.tmp
-#' @param edges edges of construced MST
-#' Output:
-#' @return group_id list of true cluster memberships
-#' @return K_hat estimated number of groups
-#####################################################################################
-fun_group_mst = function(fdy, vl_new_ls, edges) {
-  n <- nrow(fdy)
+#' Recover Cluster Memberships from MST Edge Penalties
+#'
+#' Recovers cluster memberships from the estimated auxiliary variable \code{vl}
+#' by identifying zero-penalty edges in the MST and propagating connected
+#' components to assign observations to clusters.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param vl The estimated auxiliary variable \eqn{v_l}, as returned by
+#'   \code{admm_mst()} in the \code{vl} component. An \code{(n-1) x p}
+#'   matrix where a zero row indicates the corresponding MST edge is not
+#'   cut.
+#' @param edges An \code{(n-1) x 2} integer matrix giving the edge list of
+#'   the constructed MST, as returned by \code{igraph::as_edgelist()}.
+#'
+#' @return A list with two components:
+#'   \describe{
+#'     \item{membership}{A list of integer vectors, each giving the observation
+#'       indices belonging to one estimated cluster.}
+#'     \item{cluster}{A positive integer giving the estimated number of
+#'       clusters.}
+#'   }
+#'
+#' @keywords internal
+recover_clusters <- function(Y, vl, edges) {
+  n <- nrow(Y)
   group_w = matrix(0, n - 1, n)
   for (i in 1:(n - 1)) {
-    if (sum(vl_new_ls[i, ]^2) == 0) { group_w[i, edges[i, ]] = 1 }
+    if (sum(vl[i, ]^2) == 0) { group_w[i, edges[i, ]] = 1 }
   }
   group_id_hat = list()
   add = list()
@@ -120,7 +159,7 @@ fun_group_mst = function(fdy, vl_new_ls, edges) {
   for (kk in 1:K_hat) {
     group_id[[kk]] = group_id_hat[[kk]]
   }
-  list(group_id = group_id, K_hat = K_hat)
+  list(membership = group_id, cluster = K_hat)
 }
 
 ########
@@ -128,53 +167,91 @@ fun_group_mst = function(fdy, vl_new_ls, edges) {
 ####################################### end grouping #################################
 
 
-##################### to choose the optimal taubda###############
-##############################################################################
-#' Input:
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param B B=kronecker(diag(1,n),B.basis) B-spline bases, as the role of covariates in regression-based methods
-#' @param A A=kronecker(mst_mat,diag(p))
-#' @param diff_mat The second order difference operator
-#' @param mst_mat (n-1)*n matrix obtained based on the constructed MST
-#' @param gamma_old Initial value of gamma (gamma in our manuscript)
-#' @param vl_old Initial value of vl (v_l in our manuscript)
-#' @param zeta_old Initial value of zeta (zeta in our manuscript)
-#' @param edges edges of construced MST
-#' @param rho ADMM learning rate parameter rho
-#' @param aa concavity parameter a of the MCP penalty
-#' @param ep ADMM stopping tolerance (default = 1e-1)
-#' Output:
-#' @return tau.opt optimal regularization parameter taubda selected by BIC
-#########################################################################
-cv_tau_ls <- function(fdy, B, A, diff_mat,  mst_mat, gamma_old, vl_old, zeta_old, edges , rho=1, aa=3, ep = 0.1) {
-  n <- nrow(fdy)
-  y <- matrix(c(t(fdy)))
-  tauU = 30
-  tauL = 20
-  taus = seq(tauL, tauU, by = 1)
+##################### to choose the optimal tau ###############
+#' BIC-Based Selection of Regularization Parameter
+#'
+#' Selects the optimal regularization parameter \eqn{\tau} for FDSC-MST by
+#' minimizing a BIC criterion over a grid of candidate values, with
+#' \eqn{\lambda} fixed at the provided value.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param B_basis A numeric matrix of dimension \code{T x n_basis} giving the
+#'   B-spline basis evaluated at the time points in \code{grid}.
+#' @param mst_mat An \code{(n-1) x n} matrix derived from the constructed MST.
+#' @param gamma_old Initial value of the spline coefficient vector \eqn{\gamma}.
+#' @param vl_old Initial value of the auxiliary variable \eqn{v_l}.
+#' @param zeta_old Initial value of the dual variable \eqn{\zeta}.
+#' @param edges An \code{(n-1) x 2} integer matrix giving the edge list of
+#'   the constructed MST.
+#' @param rho A positive numeric scalar specifying the ADMM learning rate.
+#'   Defaults to \code{1}.
+#' @param a A positive numeric scalar specifying the concavity parameter of
+#'   the MCP penalty. Defaults to \code{3}.
+#' @param lambda A positive numeric scalar specifying the smoothing penalty
+#'   parameter, fixed during the search over \eqn{\tau}. Defaults to
+#'   \code{0.1}.
+#' @param tol A positive numeric scalar specifying the ADMM stopping tolerance.
+#'   Defaults to \code{0.1}.
+#' @param max_iter A positive integer specifying the maximum number of ADMM
+#'   iterations. Defaults to \code{10000}.
+#' @param tau_lower A positive numeric scalar specifying the lower bound of the
+#'   search range for \eqn{\tau}. Defaults to \code{20}.
+#' @param tau_upper A positive numeric scalar specifying the upper bound of the
+#'   search range for \eqn{\tau}. Defaults to \code{30}.
+#' @param tau_step A positive numeric scalar specifying the step size of the
+#'   search grid for \eqn{\tau}. Defaults to \code{1}.
+#'
+#' @return A numeric scalar giving the optimal regularization parameter
+#'   \eqn{\tau} selected by BIC.
+#'
+#' @export
+bic_tau <- function(Y, grid, B_basis, mst_mat, gamma_old, vl_old, zeta_old, edges, 
+                      rho=1, a=3, lambda = 0.1, tol = 0.1, max_iter = 10000, 
+                      tau_lower = 20, tau_upper = 30, tau_step = 1) {
+  n <- nrow(Y)
+  y <- matrix(c(t(Y)))
+  B <- kronecker(diag(1, n), B_basis)
+  p <- ncol(B) / n
+  A <- kronecker(mst_mat,diag(p))
+  
+  D_matrix = matrix(0, p - 2, p)
+  for (i in 1:(p - 2)) {
+    D_matrix[i, i] = 1
+    D_matrix[i, i + 2] = 1
+    D_matrix[i, i + 1] = -2
+  }
+  D2 = t(D_matrix) %*% D_matrix
+  diff_mat = kronecker(diag(1, n), D2)
+
+  n_time <- length(grid)
+  taus <- seq(tau_lower, tau_upper, by = tau_step)
   ss = length(taus)
   BIC = seq(-1, -1, length = ss)
   Qnn = seq(-1, -1, length = ss)
   for (i in 1:ss) {
     tau = taus[i]
-    estimation = fun_est_ls_mst(fdy = fdy, timerange = timerange, B = B, A = A, 
-                                diff_mat = diff_mat, rho = rho, aa = aa, mst_mat = mst_mat, 
-                                gamma_old = gamma_old, vl_old = vl_old, zeta_old = zeta_old, tau = tau, ep = ep)
-    gamma_new = estimation$gamma_tmp
-    vl_new = estimation$vl_tmp
-    result_group = fun_group_mst(fdy, vl_new, edges)
-    group_id_hat = result_group$group_id
-    K_hat = result_group$K_hat
+    estimation = admm_mst(Y = Y, grid = grid, B = B, A = A, 
+                          diff_mat = diff_mat, rho = rho, a = a, mst_mat = mst_mat, 
+                          gamma_old = gamma_old, vl_old = vl_old, zeta_old = zeta_old, 
+                          lambda = lambda, tau = tau, tol = tol, max_iter = max_iter)
+    gamma_new = estimation$gamma
+    vl_new = estimation$vl
+    result_group = recover_clusters(Y, vl_new, edges)
+    group_id_hat = result_group$membership
+    K_hat = result_group$cluster
     Error = rep(0, length(group_id_hat))
     for (k in 1:length(group_id_hat)) {
-      y2_ = matrix(t(fdy[group_id_hat[[k]], ]))  
-      alpha2 = solve(t(kronecker(diag(1, length(group_id_hat[[k]])), B.basis)) %*% kronecker(diag(1, length(group_id_hat[[k]])), B.basis)) %*% t(kronecker(diag(1, length(group_id_hat[[k]])), B.basis)) %*% y2_
+      y2_ = matrix(t(Y[group_id_hat[[k]], ]))  
+      alpha2 = solve(t(kronecker(diag(1, length(group_id_hat[[k]])), B_basis)) %*% kronecker(diag(1, length(group_id_hat[[k]])), B_basis)) %*% t(kronecker(diag(1, length(group_id_hat[[k]])), B_basis)) %*% y2_
       alpha2_matrix_ = matrix(alpha2, nrow = length(group_id_hat[[k]]), byrow = TRUE)
       alpha2_hat_ = apply(alpha2_matrix_, 2, mean)
-      Error[k] = sum((fdy[group_id_hat[[k]], ] - matrix(rep(1, length(group_id_hat[[k]])), ncol = 1) %*% matrix(B.basis %*% as.matrix(alpha2_hat_), nrow = 1))^2) 
+      Error[k] = sum((Y[group_id_hat[[k]], ] - matrix(rep(1, length(group_id_hat[[k]])), ncol = 1) %*% matrix(B_basis %*% as.matrix(alpha2_hat_), nrow = 1))^2) 
     }
     dff = K_hat * p
-    Qnn[i] = sum(Error) / (n * T)
+    Qnn[i] = sum(Error) / (n * n_time)
     BIC[i] = log(Qnn[i]) + log(n * p) * log(n) * dff / n
   }
   tau_opt = taus[(max(which(BIC == min(BIC))))]
@@ -183,52 +260,74 @@ cv_tau_ls <- function(fdy, B, A, diff_mat,  mst_mat, gamma_old, vl_old, zeta_old
 #########################  End of choose the optimal taubda########################################
 
 
-
-
-
-###########################################################
-#' @title fdsc_mst
-#' @description
-#' Performs Functional Data Spectral Clustering via Minimum Spanning Tree (FDSC-MST).
-#' Given a matrix of functional observations and optional spatial coordinates, it
-#' computes a combined distance matrix (spatial + functional), constructs the MST,
-#' and then solves the ADMM-based LS-MST optimization to partition the data into
-#' subgroups. The output is the estimated cluster assignments and number of clusters.
-#' Input:
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param dx numeric vector representing the spatial x-coordinate of each observation
-#' @param dy numeric vector representing the spatial y-coordinate of each observation
-#' @param timerange numeric vector of time points
-#' @param rho ADMM learning rate parameter rho (rho in the manuscript, typically set to 1), used in augmented Lagrangian and threshold scaling
-#' @param aa concavity parameter a of the MCP penalty (default = 3), controlling shrinkage segments such as a * tau
-#' @param lambda smoothing penalty parameter lambda for B-spline roughness penalty, controlling smoothness of estimated curves
-#' @param tau fusion penalty parameter tau, controlling the strength of edge difference shrinkage and thus the number of clusters, usually selected by BIC
-#' @param n_order B-spline order (default = 3)
-#' @param el the number of B-spline basis functions
-#' @param w spatial weight in [0,1] (default = 0, i.e. no spatial effect)
-#' @param ep ADMM stopping tolerance (default = 1e-1)
-#' Output:
-#' @return group_id_hat list of estimated cluster memberships
-#' @return K_hat estimated number of groups
-###########################################################
-fdsc_mst <- function(fdy,
-                     dx = NULL, dy = NULL,
-                     timerange, rho = 1, aa = 3,
-                     lambda = 0.1,
-                     tau = 20,
-                     n_order = 3,
-                     el       = 6,
-                     w       = 0,
-                     ep      = 10^(-1)) {
-  n <- nrow(fdy)
-  T <- length(timerange)
-  y <- matrix(c(t(fdy)))
-  n_knots <- el - n_order
-  breaks <- seq(min(timerange), max(timerange), length = n_knots + 2)
-  B.basis <- bsplineS(timerange, breaks, n_order)       
-  B <- kronecker(diag(1, n), B.basis)
-  D_matrix = matrix(0, el - 2, el)
-  for (i in 1:(el - 2)) {
+#' Functional Data Subgroup Clustering via Minimum Spanning Tree (FDSC-MST)
+#'
+#' Performs functional data subgroup clustering by constructing a minimum
+#' spanning tree (MST) from a combined spatial and functional distance matrix,
+#' and solving an ADMM-based optimization problem with MCP subgroup penalties
+#' applied to MST edges.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param coord An optional \code{n x 2} numeric matrix of spatial coordinates,
+#'   where each row gives the \code{(x, y)} coordinates of one observation.
+#'   Set to \code{NULL} (default) if no spatial information is available.
+#' @param rho A positive numeric scalar specifying the ADMM learning rate.
+#'   Defaults to \code{1}.
+#' @param a A positive numeric scalar specifying the nonconvexity of
+#'   the MCP penalty. Defaults to \code{3}.
+#' @param lambda A positive numeric scalar specifying the smoothing penalty
+#'   parameter for the B-spline roughness penalty. Defaults to \code{0.1}.
+#' @param tau A positive numeric scalar specifying the regularization parameter
+#'   of the MCP penalty, controlling the shrinkage and thus the number of clusters. 
+#'   Usually selected by BIC. Defaults to \code{20}.
+#' @param spline_order A positive integer specifying the B-spline order.
+#'   Defaults to \code{3}.
+#' @param n_basis A positive integer specifying the number of B-spline basis
+#'   functions. Defaults to \code{6}.
+#' @param sp_weight A numeric scalar in \eqn{[0, 1]} specifying the spatial
+#'   weight in the combined distance matrix. Defaults to \code{0} (no spatial
+#'   effect).
+#' @param tol A positive numeric scalar specifying the ADMM stopping tolerance.
+#'   Defaults to \code{0.1}.
+#' @param max_iter A positive integer specifying the maximum number of ADMM
+#'   iterations. Defaults to \code{10000}.
+#'
+#' @return An object of class \code{"fdsc"} with the following components:
+#'   \describe{
+#'     \item{membership}{A list of integer vectors, each giving the observation
+#'       indices belonging to one estimated cluster.}
+#'     \item{cluster}{A positive integer giving the estimated number of
+#'       clusters.}
+#'     \item{label}{An integer vector of length \code{n} giving the cluster
+#'       label of each observation.}
+#'     \item{method}{Character string \code{"FDSC-MST"}.}
+#'     \item{n}{Number of observations.}
+#'     \item{tau}{Regularization parameter used.}
+#'     \item{lambda}{Smoothing penalty parameter used.}
+#'   }
+#'
+#' @seealso \code{\link{fdscod_mst}}
+#'
+#' @export
+fdsc_mst <- function(Y, grid, coord = NULL, 
+                      rho = 1, a = 3,
+                      lambda = 0.1, tau = 20,
+                      spline_order = 3,
+                      n_basis = 6, sp_weight = 0, tol = 0.1,max_iter = 10000) {
+  n <- nrow(Y)
+  n_time <- length(grid)
+  if (ncol(Y) != n_time)
+    warning("ncol(Y) and length(grid) differ, please check your input")
+  y <- matrix(c(t(Y)))
+  n_knots <- n_basis - spline_order
+  breaks <- seq(min(grid), max(grid), length = n_knots + 2)
+  B_basis <- fda::bsplineS(grid, breaks, norder = spline_order)       
+  B <- kronecker(diag(1, n), B_basis)
+  D_matrix = matrix(0, n_basis - 2, n_basis)
+  for (i in 1:(n_basis - 2)) {
     D_matrix[i, i] = 1
     D_matrix[i, i + 2] = 1
     D_matrix[i, i + 1] = -2
@@ -238,37 +337,41 @@ fdsc_mst <- function(fdy,
   distance_matrix <- matrix(0, n, n)
   for(i in 1:n) {
     for(j in 1:n) {
-      if(!is.null(dx) && !is.null(dy)) {
-        sp_dist <- sqrt((dx[i] - dx[j])^2 / 2 + (dy[i] - dy[j])^2 / 2)
+      if(!is.null(coord)) {
+        sp_dist <- sqrt(sum((coord[i, ] - coord[j, ])^2) / 2)
       } else {
         sp_dist <- 0
       }
-      func_dist <- sqrt(mean((fdy[i, ] - fdy[j, ])^2))
-      distance_matrix[i, j] <- w * sp_dist + (1 - w) * func_dist
+      func_dist <- sqrt(mean((Y[i, ] - Y[j, ])^2))
+      distance_matrix[i, j] <- sp_weight * sp_dist + (1 - sp_weight) * func_dist
     }
   }
-  graph_cut <- graph_from_adjacency_matrix(distance_matrix, weighted = TRUE, mode = "undirected")
-  mst_cut <- mst(graph_cut)
-  edges_cut <- as_edgelist(mst_cut)
+  graph_cut <- igraph::graph_from_adjacency_matrix(distance_matrix, weighted = TRUE, mode = "undirected")
+  mst_cut <- igraph::mst(graph_cut)
+  edges_cut <- igraph::as_edgelist(mst_cut)
   mst_mat_mst <- matrix(0, n - 1, n)
   for (i in seq_len(n - 1)) {
     mst_mat_mst[i, edges_cut[i, 1]] <-  1
     mst_mat_mst[i, edges_cut[i, 2]] <- -1
   }
-  A_mst <- kronecker(mst_mat_mst, diag(el))
+  A_mst <- kronecker(mst_mat_mst, diag(n_basis))
   C_init <- crossprod(B) + 0.1 * kronecker(diag(n), D2) + 0.001 * crossprod(A_mst)
   chol_C_init <- chol(C_init)
   gamma_initial <- backsolve(chol_C_init, forwardsolve(chol_C_init, crossprod(B, y)))
   vl_initial <- mst_mat_mst %*% matrix(gamma_initial, nrow = n, byrow = TRUE)
-  zeta_initial <- matrix(0, n - 1, el)
-  est <- fun_est_ls_mst(fdy = fdy, timerange = timerange, B = B, A = A_mst, diff_mat = diff_mat, 
-                         rho = rho, aa = aa, mst_mat = mst_mat_mst,
+  zeta_initial <- matrix(0, n - 1, n_basis)
+  est <- admm_mst(Y = Y, grid = grid, B = B, A = A_mst, diff_mat = diff_mat, 
+                         rho = rho, a = a, mst_mat = mst_mat_mst,
                          gamma_old = gamma_initial, vl_old = vl_initial, zeta_old = zeta_initial,
-                         tau = tau, lambda = lambda, ep = 0.1)
-  grp <- fun_group_mst(fdy = fdy, vl_new_ls = est$vl_tmp, edges = edges_cut)
-  list(
-    group_id_hat = grp$group_id,
-    K_hat    = grp$K_hat
+                         tau = tau, lambda = lambda, tol = tol, max_iter = max_iter)
+  grp <- recover_clusters(Y = Y, vl = est$vl, edges = edges_cut)
+  new_fdsc(
+    membership = grp$membership,
+    cluster  = grp$cluster,
+    n        = n,
+    tau      = tau,
+    lambda   = lambda,
+    method   = "FDSC-MST"
   )
 }
 

@@ -2,59 +2,84 @@
 % Please edit documentation in R/FDSC-MST.R
 \name{fdsc_mst}
 \alias{fdsc_mst}
-\title{fdsc_mst}
+\title{Functional Data Subgroup Clustering via Minimum Spanning Tree (FDSC-MST)}
 \usage{
 fdsc_mst(
-  fdy,
-  dx = NULL,
-  dy = NULL,
-  timerange,
+  Y,
+  grid,
+  coord = NULL,
   rho = 1,
-  aa = 3,
+  a = 3,
   lambda = 0.1,
   tau = 20,
-  n_order = 3,
-  el = 6,
-  w = 0,
-  ep = 10^(-1)
+  spline_order = 3,
+  n_basis = 6,
+  sp_weight = 0,
+  tol = 0.1,
+  max_iter = 10000
 )
 }
 \arguments{
-\item{fdy}{a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points}
+\item{Y}{A numeric matrix of dimension \code{n x T}, representing
+functional data for \code{n} observations evaluated at \code{T} time
+points.}
 
-\item{dx}{numeric vector representing the spatial x-coordinate of each observation}
+\item{grid}{A numeric vector of time points of length \code{T}.}
 
-\item{dy}{numeric vector representing the spatial y-coordinate of each observation}
+\item{coord}{An optional \code{n x 2} numeric matrix of spatial coordinates,
+where each row gives the \code{(x, y)} coordinates of one observation.
+Set to \code{NULL} (default) if no spatial information is available.}
 
-\item{timerange}{numeric vector of time points}
+\item{rho}{A positive numeric scalar specifying the ADMM learning rate.
+Defaults to \code{1}.}
 
-\item{rho}{ADMM learning rate parameter rho (rho in the manuscript, typically set to 1), used in augmented Lagrangian and threshold scaling}
+\item{a}{A positive numeric scalar specifying the nonconvexity of
+the MCP penalty. Defaults to \code{3}.}
 
-\item{aa}{concavity parameter a of the MCP penalty (default = 3), controlling shrinkage segments such as a * tau}
+\item{lambda}{A positive numeric scalar specifying the smoothing penalty
+parameter for the B-spline roughness penalty. Defaults to \code{0.1}.}
 
-\item{lambda}{smoothing penalty parameter lambda for B-spline roughness penalty, controlling smoothness of estimated curves}
+\item{tau}{A positive numeric scalar specifying the regularization parameter
+of the MCP penalty, controlling the shrinkage and thus the number of clusters. 
+Usually selected by BIC. Defaults to \code{20}.}
 
-\item{tau}{fusion penalty parameter tau, controlling the strength of edge difference shrinkage and thus the number of clusters, usually selected by BIC}
+\item{spline_order}{A positive integer specifying the B-spline order.
+Defaults to \code{3}.}
 
-\item{n_order}{B-spline order (default = 3)}
+\item{n_basis}{A positive integer specifying the number of B-spline basis
+functions. Defaults to \code{6}.}
 
-\item{el}{the number of B-spline basis functions}
+\item{sp_weight}{A numeric scalar in \eqn{[0, 1]} specifying the spatial
+weight in the combined distance matrix. Defaults to \code{0} (no spatial
+effect).}
 
-\item{w}{spatial weight in [0,1] (default = 0, i.e. no spatial effect)}
+\item{tol}{A positive numeric scalar specifying the ADMM stopping tolerance.
+Defaults to \code{0.1}.}
 
-\item{ep}{ADMM stopping tolerance (default = 1e-1)
-Output:}
+\item{max_iter}{A positive integer specifying the maximum number of ADMM
+iterations. Defaults to \code{10000}.}
 }
 \value{
-group_id_hat list of estimated cluster memberships
-
-K_hat estimated number of groups
+An object of class \code{"fdsc"} with the following components:
+  \describe{
+    \item{membership}{A list of integer vectors, each giving the observation
+      indices belonging to one estimated cluster.}
+    \item{cluster}{A positive integer giving the estimated number of
+      clusters.}
+    \item{label}{An integer vector of length \code{n} giving the cluster
+      label of each observation.}
+    \item{method}{Character string \code{"FDSC-MST"}.}
+    \item{n}{Number of observations.}
+    \item{tau}{Regularization parameter used.}
+    \item{lambda}{Smoothing penalty parameter used.}
+  }
 }
 \description{
-Performs Functional Data Spectral Clustering via Minimum Spanning Tree (FDSC-MST).
-Given a matrix of functional observations and optional spatial coordinates, it
-computes a combined distance matrix (spatial + functional), constructs the MST,
-and then solves the ADMM-based LS-MST optimization to partition the data into
-subgroups. The output is the estimated cluster assignments and number of clusters.
-Input:
+Performs functional data subgroup clustering by constructing a minimum
+spanning tree (MST) from a combined spatial and functional distance matrix,
+and solving an ADMM-based optimization problem with MCP subgroup penalties
+applied to MST edges.
+}
+\seealso{
+\code{\link{fdscod_mst}}
 }

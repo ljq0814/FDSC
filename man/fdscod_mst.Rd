@@ -2,66 +2,92 @@
 % Please edit documentation in R/FDSCOD-MST.R
 \name{fdscod_mst}
 \alias{fdscod_mst}
-\title{fdscod_mst}
+\title{Functional Data Subgroup Clustering and Outlier Detection via MST (FDSCOD-MST)}
 \usage{
 fdscod_mst(
-  fdy,
-  dx,
-  dy,
-  timerange,
+  Y,
+  grid,
+  coord = NULL,
   rho = 1,
-  aa = 3,
+  a = 3,
   lambda = 0.1,
   tau = 20,
-  n_order = 3,
-  el = 6,
-  w = 0,
-  ep = 0.1,
-  alpha0 = 0.05
+  spline_order = 3,
+  n_basis = 6,
+  sp_weight = 0,
+  tol = 0.1,
+  max_iter = 10000,
+  alpha = 0.05
 )
 }
 \arguments{
-\item{fdy}{a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points}
+\item{Y}{A numeric matrix of dimension \code{n x T}, representing
+functional data for \code{n} observations evaluated at \code{T} time
+points.}
 
-\item{dx}{numeric vector representing the spatial x-coordinate of each observation}
+\item{grid}{A numeric vector of time points of length \code{T}.}
 
-\item{dy}{numeric vector representing the spatial y-coordinate of each observation}
+\item{coord}{An optional \code{n x 2} numeric matrix of spatial coordinates,
+where each row gives the \code{(x, y)} coordinates of one observation.
+Set to \code{NULL} (default) if no spatial information is available.}
 
-\item{timerange}{numeric vector of time points}
+\item{rho}{A positive numeric scalar specifying the ADMM learning rate.
+Defaults to \code{1}.}
 
-\item{rho}{ADMM learning rate parameter rho (rho in the manuscript, typically set to 1), used in augmented Lagrangian and threshold scaling}
+\item{a}{A positive numeric scalar specifying the concavity parameter of
+the MCP penalty. Defaults to \code{3}.}
 
-\item{aa}{concavity parameter a of the MCP penalty (default = 3), controlling shrinkage segments such as a * tau}
+\item{lambda}{A positive numeric scalar specifying the smoothing penalty
+parameter for the B-spline roughness penalty. Defaults to \code{0.1}.}
 
-\item{lambda}{smoothing penalty parameter lambda for B-spline roughness penalty, controlling smoothness of estimated curves}
+\item{tau}{A positive numeric scalar specifying the regularization parameter
+of the MCP penalty, controlling the strength of edge difference shrinkage
+and thus the number of clusters. Defaults to \code{20}.}
 
-\item{tau}{fusion penalty parameter tau, controlling the strength of edge difference shrinkage and thus the number of clusters, usually selected by BIC}
+\item{spline_order}{A positive integer specifying the B-spline order.
+Defaults to \code{3}.}
 
-\item{n_order}{B-spline order (default = 3)}
+\item{n_basis}{A positive integer specifying the number of B-spline basis
+functions. Defaults to \code{6}.}
 
-\item{el}{the number of B-spline basis functions}
+\item{sp_weight}{A numeric scalar in \eqn{[0, 1]} specifying the spatial
+weight in the combined distance matrix. Defaults to \code{0} (no spatial
+effect).}
 
-\item{w}{spatial weight in [0,1] (default = 0, i.e. no spatial effect)}
+\item{tol}{A positive numeric scalar specifying the ADMM stopping tolerance.
+Defaults to \code{0.1}.}
 
-\item{ep}{ADMM stopping tolerance (default = 1e-1)}
+\item{max_iter}{A positive integer specifying the maximum number of ADMM
+iterations. Defaults to \code{10000}.}
 
-\item{alpha0}{The significance level (default 0.05) used for statistical testing}
+\item{alpha}{A numeric scalar in \eqn{(0, 1)} specifying the significance
+level for FDR-controlled outlier detection. Defaults to \code{0.05}.}
 }
 \value{
-group_id_final list of estimated cluster memberships
-
-K_hat_final estimated number of groups
-
-out_set_final the indices of observations identified as outliers
+An object of class \code{"fdsc"} with the following components:
+  \describe{
+    \item{membership}{A list of integer vectors, each giving the observation
+      indices belonging to one estimated cluster.}
+    \item{cluster}{A positive integer giving the estimated number of
+      clusters.}
+    \item{label}{An integer vector of length \code{n} giving the cluster
+      label of each observation.}
+    \item{method}{Character string \code{"FDSCOD-MST"}.}
+    \item{n}{Number of observations.}
+    \item{tau}{Regularization parameter used.}
+    \item{lambda}{Smoothing penalty parameter used.}
+    \item{outliers}{An integer vector of detected outlier indices, or an
+      empty integer vector if no outliers are detected.}
+  }
 }
 \description{
-Implements the Functional Data Spatial Clustering with Outlier Detection 
-and Minimum Spanning Tree optimization (FDSCOD-MST) algorithm.
-This function performs clustering on functional spatial data while detecting 
-potential outliers. It first applies preliminary outlier screening based on 
-statistical testing, then fits B-spline basis functions to the functional data, 
-optimizes the regularization parameter via BIC, and constructs a Minimum 
-Spanning Tree to refine clustering assignments. The output includes the 
-estimated cluster memberships, the number of detected groups, and the indices 
-of identified outliers.
+Performs functional data subgroup clustering with simultaneous outlier
+detection based on minimum spanning tree (MST). The algorithm first applies
+preliminary outlier screening, then runs \code{fdsc_mst()} on the cleaned
+data to obtain initial cluster assignments, and finally performs
+FDR-controlled hypothesis testing to identify outliers among the potential
+outlying set.
+}
+\seealso{
+\code{\link{fdsc_mst}}
 }

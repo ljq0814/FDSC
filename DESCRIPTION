@@ -1,11 +1,18 @@
 Package: FDSC
 Type: Package
 Title: Functional Data Subgroup Clustering and Outlier Identification via Minimum Spanning Tree
-Version: 0.1.0
-Author: Chao Liu & Shimin Lin & Jiaqi Li
-Description: This package contains the code in the paper 'Functional Data Clustering and Outlier Identification under Contamination via  Subgroup Analysis'
-License: GPL (>= 2)
-Imports: MASS, fda, fdapace, igraph, flexclust
+Version: 1.0.0
+Author: c(person("Chao", "Liu", , "liuc36@szu.edu.cn", role = c("aut", "cre")),
+      person("Shimin", "Lin", , "2310125018@email.szu.edu.cn", role = "aut"),
+      person("Jiaqi", "Li", , "ljq0814nana@gmail.com", role = "aut"))
+Description: This package implements two functional data clustering algorithms based on
+    minimum spanning tree (MST). FDSC-MST solves the subgroup clustering
+    problem by constructing an MST using geographical distance and functional
+    curve similarity, and applies subgroup pairwise penalties to MST edges. An alternating direction method of multipliers (ADMM) is
+    utilized to solve the optimization problem. For contaminated data, this package implements FDSCOD-MST, 
+    which simultaneously performs clustering and outlier detection.
+License: MIT + file LICENSE
+Imports: MASS, fda, fdapace, igraph
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

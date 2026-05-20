@@ -2,25 +2,33 @@
 % Please edit documentation in R/FDSCOD-MST.R
 \name{fun_test}
 \alias{fun_test}
-\title{Input:}
+\title{Multiple Hypothesis Testing for Functional Outlier Detection}
 \usage{
-fun_test(timerange, fdy, out_pot, group_id_hat, alpha0)
+fun_test(Y, grid, out_pot, group_id_hat, alpha)
 }
 \arguments{
-\item{timerange}{numeric vector of time points}
+\item{Y}{A numeric matrix of dimension \code{n x T}, representing
+functional data for \code{n} observations evaluated at \code{T} time
+points.}
 
-\item{fdy}{a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points}
+\item{grid}{A numeric vector of time points of length \code{T}.}
 
-\item{out_pot}{the potential outlying set obtained from the Preliminary Outlier Screening step in Algorithm 2}
+\item{out_pot}{An integer vector of indices of potential outliers, obtained
+from the preliminary outlier screening step.}
 
-\item{group_id_hat}{initial cluster memberships obtained from the Initial Clustering step in Algorithm 2}
+\item{group_id_hat}{A list of integer vectors giving the initial cluster
+memberships, obtained from the initial clustering step.}
 
-\item{alpha0}{default 0.05 the significance level for FDR-controlled outlier detection
-Output:}
+\item{alpha}{A numeric scalar in \eqn{(0, 1)} specifying the significance
+level for FDR-controlled outlier detection. Defaults to \code{0.05}.}
 }
 \value{
-out_set: the final detected outlier set
+An integer vector of indices (within \code{out_pot}) of detected
+  outliers.
 }
 \description{
-Input:
+Performs FDR-controlled multiple hypothesis testing to identify functional
+outliers among a set of potential outliers. Test statistics are computed
+via \code{fun_statistic()} and thresholded using an iterative FDR procedure.
 }
+\keyword{internal}

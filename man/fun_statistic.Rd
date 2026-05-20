@@ -2,27 +2,36 @@
 % Please edit documentation in R/FDSCOD-MST.R
 \name{fun_statistic}
 \alias{fun_statistic}
-\title{fun_statistic
-Input:}
+\title{Compute Test Statistics for Functional Outlier Detection}
 \usage{
-fun_statistic(timerange, fdy, out_pot, group_id_hat)
+fun_statistic(Y, grid, out_pot, group_id_hat)
 }
 \arguments{
-\item{timerange}{numeric vector of time points}
+\item{Y}{A numeric matrix of dimension \code{n x T}, representing
+functional data for \code{n} observations evaluated at \code{T} time
+points.}
 
-\item{fdy}{a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points}
+\item{grid}{A numeric vector of time points of length \code{T}.}
 
-\item{out_pot}{the potential outlying set obtained from the Preliminary Outlier Screening step in Algorithm 2}
+\item{out_pot}{An integer vector of indices of potential outliers, obtained
+from the preliminary outlier screening step.}
 
-\item{group_id_hat}{initial cluster memberships obtained from the Initial Clustering step in Algorithm 2
-Output:}
+\item{group_id_hat}{A list of integer vectors giving the initial cluster
+memberships, obtained from the initial clustering step.}
 }
 \value{
-T_stat: Test statistics for potential outliers (see equation (7) in the paper)
-
-D: number of retained functional principal components
+A list with two components:
+  \describe{
+    \item{test_stat}{A numeric vector of test statistics for each potential
+      outlier.}
+    \item{D}{A positive integer giving the number of retained functional
+      principal components.}
+  }
 }
 \description{
-fun_statistic
-Input:
+Computes test statistics for potential outliers using functional principal
+component analysis (FPCA). The statistic for each potential outlier is the
+weighted sum of squared projections onto the leading functional principal
+components.
 }
+\keyword{internal}

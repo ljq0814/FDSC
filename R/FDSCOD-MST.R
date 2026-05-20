@@ -1,28 +1,41 @@
-################to compute test statistics for identifying functional outliers##################
-##############################################################################
-#' @title fun_statistic
-#' Input:
-#' @param timerange numeric vector of time points
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param out_pot the potential outlying set obtained from the Preliminary Outlier Screening step in Algorithm 2
-#' @param group_id_hat initial cluster memberships obtained from the Initial Clustering step in Algorithm 2
-#' Output:
-#' @return T_stat: Test statistics for potential outliers (see equation (7) in the paper)
-#' @return D: number of retained functional principal components
-##############################################################################
-fun_statistic=function(timerange,fdy,out_pot,group_id_hat) 
+#' Compute Test Statistics for Functional Outlier Detection
+#'
+#' Computes test statistics for potential outliers using functional principal
+#' component analysis (FPCA). The statistic for each potential outlier is the
+#' weighted sum of squared projections onto the leading functional principal
+#' components.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param out_pot An integer vector of indices of potential outliers, obtained
+#'   from the preliminary outlier screening step.
+#' @param group_id_hat A list of integer vectors giving the initial cluster
+#'   memberships, obtained from the initial clustering step.
+#'
+#' @return A list with two components:
+#'   \describe{
+#'     \item{test_stat}{A numeric vector of test statistics for each potential
+#'       outlier.}
+#'     \item{D}{A positive integer giving the number of retained functional
+#'       principal components.}
+#'   }
+#'
+#' @keywords internal
+fun_statistic <- function(Y, grid, out_pot, group_id_hat) 
 {
-  T <- length(timerange)
+  n_time <- length(grid)
   n = length(out_pot)
-  T_stat <- rep(0,n)
+  test_stat <- rep(0,n)
   lt=list()
   ly=list()
   for (i in 1:length(group_id_hat))
   {
-    lt[[i]]=timerange
-    ly[[i]] <- fdy[group_id_hat[[i]],]
+    lt[[i]]=grid
+    ly[[i]] <- Y[group_id_hat[[i]],]
   }
-  R <- FPCA(ly,lt,list(nRegGrid=T,FVEthreshold=0.999))   
+  R <- fdapace::FPCA(ly,lt,list(nRegGrid=n_time,FVEthreshold=0.999))   
   mu <- R$mu
   lambda <- R$lambda
   phi <- R$phi 
@@ -31,42 +44,54 @@ fun_statistic=function(timerange,fdy,out_pot,group_id_hat)
   for (i in 1:n) 
   {   
     for (k in 1:D) {   
-      ksi[i,k]<- t(matrix((fdy[out_pot[i],]-mu)))%*%matrix(phi[,k])}
-    T_stat[i] <- sum(ksi[i,]^2/lambda)
+      ksi[i,k]<- t(matrix((Y[out_pot[i],]-mu)))%*%matrix(phi[,k])}
+    test_stat[i] <- sum(ksi[i,]^2/lambda)
   }
   
-  list(T_stat=T_stat,D=D)
+  list(test_stat=test_stat,D=D)
 }
 ##############################End of compute test statistics#####################################
 
 
 #########################Multiple Hypothesis Testing for Outlier Detection########################
 ##############################################################################
-#' Input:
-#' @param timerange numeric vector of time points
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param out_pot the potential outlying set obtained from the Preliminary Outlier Screening step in Algorithm 2
-#' @param group_id_hat initial cluster memberships obtained from the Initial Clustering step in Algorithm 2
-#' @param alpha0 default 0.05 the significance level for FDR-controlled outlier detection
-#' Output:
-#' @return out_set: the final detected outlier set
-############################################################################
-fun_test <- function(timerange,fdy,out_pot,group_id_hat, alpha0)
+#' Multiple Hypothesis Testing for Functional Outlier Detection
+#'
+#' Performs FDR-controlled multiple hypothesis testing to identify functional
+#' outliers among a set of potential outliers. Test statistics are computed
+#' via \code{fun_statistic()} and thresholded using an iterative FDR procedure.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param out_pot An integer vector of indices of potential outliers, obtained
+#'   from the preliminary outlier screening step.
+#' @param group_id_hat A list of integer vectors giving the initial cluster
+#'   memberships, obtained from the initial clustering step.
+#' @param alpha A numeric scalar in \eqn{(0, 1)} specifying the significance
+#'   level for FDR-controlled outlier detection. Defaults to \code{0.05}.
+#'
+#' @return An integer vector of indices (within \code{out_pot}) of detected
+#'   outliers.
+#'
+#' @keywords internal
+fun_test <- function(Y, grid, out_pot, group_id_hat, alpha)
 {  
-  T <- length(timerange)
+  n_time <- length(grid)
   n = length(out_pot)
-  T.test=rep(0,n)
+  test_stat=rep(0,n)
   Q_T=rep(0,n)  
   
-  AA=fun_statistic(timerange,fdy,out_pot,group_id_hat) 
-  T.test=AA$T_stat
+  AA <- fun_statistic(Y = Y, grid = grid, out_pot = out_pot, group_id_hat = group_id_hat) 
+  test_stat=AA$test_stat
   D=AA$D
-  #T.test=T_stat
-  th_median=median(T.test)/qchisq(0.5,D)  
+  #test_stat=test_stat
+  th_median=median(test_stat)/qchisq(0.5,D)  
   
-  T.test=T.test/th_median
+  test_stat=test_stat/th_median
   for (i in 1:n)
-  {Q_T[i]=qnorm((pchisq(T.test[i],D)+1)/2)}
+  {Q_T[i]=qnorm((pchisq(test_stat[i],D)+1)/2)}
   
   ############  find the threshold t0 by iteration 
   len.tt=100
@@ -77,93 +102,115 @@ fun_test <- function(timerange,fdy,out_pot,group_id_hat, alpha0)
   {
     t_fdr[it]=2*n*(1-pnorm(t_it[it]))/max(length(which(abs(Q_T)>=t_it[it])),1)
   }
-  # print(T.test)
-  # print(Q_T)
   
-  if (length(which(t_fdr<=alpha0))>0){
-    t0=t_it[min(which((t_fdr-alpha0)<=0))]}
+  if (length(which(t_fdr<=alpha))>0){
+    t0=t_it[min(which((t_fdr-alpha)<=0))]}
   else
   {t0=sqrt(2*log(n))}
-  # print(t_fdr)
-  #print(t0)  
   ###############  perform outlier detection
   out_set=which(Q_T>t0)
-  list(out_set=out_set)
+  return(out_set)
 }
 ##############################End of compute test statistics#####################################fd
 #############################################End of the test########################################
 
 
-##########################################
-#' @title fdscod_mst
-#' @description
-#' Implements the Functional Data Spatial Clustering with Outlier Detection 
-#' and Minimum Spanning Tree optimization (FDSCOD-MST) algorithm.
-#' This function performs clustering on functional spatial data while detecting 
-#' potential outliers. It first applies preliminary outlier screening based on 
-#' statistical testing, then fits B-spline basis functions to the functional data, 
-#' optimizes the regularization parameter via BIC, and constructs a Minimum 
-#' Spanning Tree to refine clustering assignments. The output includes the 
-#' estimated cluster memberships, the number of detected groups, and the indices 
-#' of identified outliers.
-##############################################################################
-## Input:
-#' @param fdy a numeric matrix of dimension n * T, representing the functional data for n observations evaluated at T time points
-#' @param dx numeric vector representing the spatial x-coordinate of each observation
-#' @param dy numeric vector representing the spatial y-coordinate of each observation
-#' @param timerange numeric vector of time points
-#' @param rho ADMM learning rate parameter rho (rho in the manuscript, typically set to 1), used in augmented Lagrangian and threshold scaling
-#' @param aa concavity parameter a of the MCP penalty (default = 3), controlling shrinkage segments such as a * tau
-#' @param lambda smoothing penalty parameter lambda for B-spline roughness penalty, controlling smoothness of estimated curves
-#' @param tau fusion penalty parameter tau, controlling the strength of edge difference shrinkage and thus the number of clusters, usually selected by BIC
-#' @param n_order B-spline order (default = 3)
-#' @param el the number of B-spline basis functions
-#' @param w spatial weight in [0,1] (default = 0, i.e. no spatial effect)
-#' @param ep ADMM stopping tolerance (default = 1e-1)
-#' @param alpha0 The significance level (default 0.05) used for statistical testing 
-## Output:
-#' @return group_id_final list of estimated cluster memberships
-#' @return K_hat_final estimated number of groups
-#' @return out_set_final the indices of observations identified as outliers 
-
-#####################################################################################
-fdscod_mst<- function(fdy, dx, dy, timerange, rho = 1,aa = 3,
-                      lambda = 0.1, tau = 20, n_order = 3, 
-                      el = 6, w = 0, ep = 0.1, alpha0 = 0.05) {
-  n <- nrow(fdy)
-  T <- length(timerange)
-  n.knots <- el - n_order
-  breaks <- seq(min(timerange), max(timerange), length = n.knots + 2)
+#' Functional Data Subgroup Clustering and Outlier Detection via MST (FDSCOD-MST)
+#'
+#' Performs functional data subgroup clustering with simultaneous outlier
+#' detection based on minimum spanning tree (MST). The algorithm first applies
+#' preliminary outlier screening, then runs \code{fdsc_mst()} on the cleaned
+#' data to obtain initial cluster assignments, and finally performs
+#' FDR-controlled hypothesis testing to identify outliers among the potential
+#' outlying set.
+#'
+#' @param Y A numeric matrix of dimension \code{n x T}, representing
+#'   functional data for \code{n} observations evaluated at \code{T} time
+#'   points.
+#' @param grid A numeric vector of time points of length \code{T}.
+#' @param coord An optional \code{n x 2} numeric matrix of spatial coordinates,
+#'   where each row gives the \code{(x, y)} coordinates of one observation.
+#'   Set to \code{NULL} (default) if no spatial information is available.
+#' @param rho A positive numeric scalar specifying the ADMM learning rate.
+#'   Defaults to \code{1}.
+#' @param a A positive numeric scalar specifying the concavity parameter of
+#'   the MCP penalty. Defaults to \code{3}.
+#' @param lambda A positive numeric scalar specifying the smoothing penalty
+#'   parameter for the B-spline roughness penalty. Defaults to \code{0.1}.
+#' @param tau A positive numeric scalar specifying the regularization parameter
+#'   of the MCP penalty, controlling the strength of edge difference shrinkage
+#'   and thus the number of clusters. Defaults to \code{20}.
+#' @param spline_order A positive integer specifying the B-spline order.
+#'   Defaults to \code{3}.
+#' @param n_basis A positive integer specifying the number of B-spline basis
+#'   functions. Defaults to \code{6}.
+#' @param sp_weight A numeric scalar in \eqn{[0, 1]} specifying the spatial
+#'   weight in the combined distance matrix. Defaults to \code{0} (no spatial
+#'   effect).
+#' @param tol A positive numeric scalar specifying the ADMM stopping tolerance.
+#'   Defaults to \code{0.1}.
+#' @param max_iter A positive integer specifying the maximum number of ADMM
+#'   iterations. Defaults to \code{10000}.
+#' @param alpha A numeric scalar in \eqn{(0, 1)} specifying the significance
+#'   level for FDR-controlled outlier detection. Defaults to \code{0.05}.
+#'
+#' @return An object of class \code{"fdsc"} with the following components:
+#'   \describe{
+#'     \item{membership}{A list of integer vectors, each giving the observation
+#'       indices belonging to one estimated cluster.}
+#'     \item{cluster}{A positive integer giving the estimated number of
+#'       clusters.}
+#'     \item{label}{An integer vector of length \code{n} giving the cluster
+#'       label of each observation.}
+#'     \item{method}{Character string \code{"FDSCOD-MST"}.}
+#'     \item{n}{Number of observations.}
+#'     \item{tau}{Regularization parameter used.}
+#'     \item{lambda}{Smoothing penalty parameter used.}
+#'     \item{outliers}{An integer vector of detected outlier indices, or an
+#'       empty integer vector if no outliers are detected.}
+#'   }
+#'
+#' @seealso \code{\link{fdsc_mst}}
+#'
+#' @export
+fdscod_mst<- function(Y, grid, coord = NULL, rho = 1, a = 3,
+                      lambda = 0.1, tau = 20, spline_order = 3, 
+                      n_basis = 6, sp_weight = 0, tol = 0.1, max_iter = 10000, alpha = 0.05) {
+  n <- nrow(Y)
+  n_time <- length(grid)
+  n.knots <- n_basis - spline_order
+  breaks <- seq(min(grid), max(grid), length = n.knots + 2)
   
   # Step 1: Preliminary Outlier Screening
   dif <- matrix(0, n, n)
   h_len <- numeric(n)
   for (i in 1:n) {
     for (j in 1:n) {
-      dif[i, j] <- mean((fdy[i, ] - fdy[j, ])^2)
+      dif[i, j] <- mean((Y[i, ] - Y[j, ])^2)
     }
     h_len[i] <- length(which(dif[i, ] < 4 * n^(-0.01)))
   }
   h.sort <- sort.int(h_len, index.return = TRUE)
   out_pot <- h.sort$ix[1:floor(0.2 * n)]
   clean_pot <- setdiff(1:n, out_pot)
-  fdy_cut <- fdy[clean_pot, ]
-  dx_cut <- dx[clean_pot]
-  dy_cut <- dy[clean_pot]
+  fdy_cut <- Y[clean_pot, ]
+  dx_cut <- coord[clean_pot,1]
+  dy_cut <- coord[clean_pot,2]
   n_cut=dim(fdy_cut)[1]
-  grp <- fdsc_mst(fdy = fdy_cut, dx = dx_cut, dy = dy_cut,
-                  timerange = timerange,
+  grp <- fdsc_mst(Y = fdy_cut, coord = coord[clean_pot,],
+                  grid = grid,
                   lambda = lambda,
                   rho = rho,
-                  aa = aa,
+                  a = a,
                   tau = tau,
-                  n_order = n_order,
-                  el = el,
-                  w = w,
-                  ep = ep)
+                  spline_order = spline_order,
+                  n_basis = n_basis,
+                  sp_weight = sp_weight,
+                  tol = tol,
+                  max_iter = max_iter)
   
-  group_id_mst <- grp$group_id_hat
-  K_hat_mst <- grp$K_hat
+  group_id_mst <- grp$membership
+  K_hat_mst <- grp$cluster
   
   group_id_mst_final=list()
   for (k in 1:K_hat_mst)
@@ -174,8 +221,8 @@ fdscod_mst<- function(fdy, dx, dy, timerange, rho = 1,aa = 3,
   out_index=list()
   for (k in 1:K_hat_mst)
   {
-    out_index[[k]] <- fun_test(timerange = timerange,fdy = fdy,out_pot = out_pot,
-                            group_id_hat = group_id_mst_final[[k]], alpha0 = alpha0)$out_set
+    out_index[[k]] <- fun_test(Y = Y, grid = grid, out_pot = out_pot,
+                               group_id_hat = group_id_mst_final[[k]], alpha = alpha)
   }
   
   out_final=out_index[[1]]
@@ -190,15 +237,20 @@ fdscod_mst<- function(fdy, dx, dy, timerange, rho = 1,aa = 3,
   for (i in 1:length(set_m)){
     mses <- rep(0,K_hat_mst)
     for (kk in 1:K_hat_mst){  
-      mses[kk] <- mean((apply(matrix(fdy[group_id_mst_final[[kk]],],ncol=T),2,mean)-fdy[set_m[i],])^2)
+      mses[kk] <- mean((apply(matrix(Y[group_id_mst_final[[kk]],],ncol=n_time),2,mean)-Y[set_m[i],])^2)
     }
     k <- which.min(mses)
     group_id_mst_final[[k]] <- union(group_id_mst_final[[k]],set_m[i])
   }
-  
-  
-  return(list(group_id_final = group_id_mst_final,
-              K_hat_final = K_hat_mst,
-              out_set_final = out_set_final))
+
+  return(new_fdsc(
+    membership = group_id_mst_final,
+    cluster    = K_hat_mst,
+    n          = n,
+    tau        = tau,
+    lambda     = lambda,
+    method     = "FDSCOD-MST",
+    outlier    = out_set_final
+  ))
 }
 
