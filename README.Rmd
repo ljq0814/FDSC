@@ -99,8 +99,8 @@ dat2 <- datageneration(n = n, grid = grid, sig_x = sig_x,
 
 # Run FDSCOD-MST
 res_fdscodmst <- fdscod_mst(Y = dat2$Y, coord = dat2$coord, grid = grid,
-                      rho = 1, lambda = 0.1, tau = 40, spline_order = 3,
-                      n_basis = 6, sp_weight = 0, tol = 0.1, alpha = 0.05)
+                      lambda = 0.1, tau = 40, spline_order = 3, n_basis = 6,
+                      sp_weight = 0, tol = 0.1, alpha = 0.05)
 summary(res_fdscodmst)
 
 # Evaluate clustering and outlier detection performance
