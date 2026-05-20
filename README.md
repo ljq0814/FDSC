@@ -82,7 +82,7 @@ cat(flexclust::comPart(label_true, res_fdscmst$label, type = "ARI")) ## ARI calc
 We introduce $n_{\text{out}} = 10$ outliers into the dataset from
 Example 1. The outlier mean functions follow the contamination scheme:
 
-$$\mu_i(t) = \theta\{\delta \min(|t - 7| - 6, 0) + (1 - \delta)\min(|t - 15| - 6, 0)\}, \quad i \in \mathcal{O}$$
+$$\mu_i(t) = \theta\lbrace\delta \min(|t - 7| - 6, 0) + (1 - \delta)\min(|t - 15| - 6, 0)\rbrace, \quad i \in \mathcal{O}$$
 
 where $\delta \sim \text{Bernoulli}(0.5)$ and $\theta = 0.5$.
 
