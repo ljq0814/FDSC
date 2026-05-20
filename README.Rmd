@@ -40,7 +40,7 @@ step size 0.2, under two clusters $G_1$ and $G_2$ with mean functions:
 
 Spatial locations $(h_{xi},h_{yi})$ are sampled uniformly from $[0, 1]^2$, which satisfy:
 
-$$G_1 = \{i \mid h_{xi} > h_{yi}\}, \quad G_2 = \{i \mid h_{xi} \leq h_{yi}\}$$
+$$G_1 = \lbrace i \mid h_{xi} > h_{yi}\rbrace, \quad G_2 = \lbrace i \mid h_{xi} \leq h_{yi}\rbrace$$
 
 Each observation is a smooth curve with Gaussian noise of standard deviation 0.1.
 
